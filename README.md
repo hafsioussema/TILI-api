@@ -23,7 +23,8 @@ API REST NestJS pour la gestion des utilisateurs et l'authentification avec JWT.
 ```bash
 # Cloner le projet
 git clone <repository>
-cd tili-api
+# Naviguer vers le projet
+cd /Users/chkilisaif/Documents/tili-api
 
 # Installer les dépendances
 npm install
