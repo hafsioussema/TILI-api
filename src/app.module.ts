@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
+import { DocumentsModule } from './documents/documents.module';
+import { ProjectsModule } from './projects/projects.module';
 import { UsersService } from './users/users.service';
 
 @Module({
@@ -27,6 +29,8 @@ import { UsersService } from './users/users.service';
     UsersModule,
     AuthModule,
     EmailModule,
+    DocumentsModule,
+    ProjectsModule,
   ],
 })
 export class AppModule implements OnModuleInit {
