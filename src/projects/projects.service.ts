@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Project, ProjectDoc } from './schemas/project.schema';
 import { CreateProjectDto, UpdateProjectDto, QueryProjectsDto } from './dto/project.dto';
 import { Role } from '../common/enums/role.enum';
+import { ProjectStatus } from '../common/enums/document.enum';
 import { DocumentsService } from '../documents/documents.service';
 import { TasksService } from '../tasks/tasks.service';
 
@@ -29,10 +30,11 @@ export class ProjectsService {
         @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
     ) { }
 
-    async create(createDto: CreateProjectDto): Promise<ProjectDoc> {
+    async create(createDto: CreateProjectDto, creatorId: string): Promise<ProjectDoc> {
+        const managerId = createDto.managerId || creatorId;
         const project = new this.projectModel({
             ...createDto,
-            managerId: new Types.ObjectId(createDto.managerId),
+            managerId: new Types.ObjectId(managerId),
             members: createDto.members?.map(m => new Types.ObjectId(m)) || [],
         });
         const savedProject = await project.save();
@@ -111,11 +113,49 @@ export class ProjectsService {
         return project.save();
     }
 
-    async remove(id: string): Promise<void> {
-        const result = await this.projectModel.findByIdAndDelete(id);
-        if (!result) {
+    async remove(id: string, userId: string, userRole: Role): Promise<void> {
+        const project = await this.projectModel.findById(id).exec();
+        if (!project) {
             throw new NotFoundException('Projet non trouvé');
         }
+        if (userRole !== Role.ADMIN) {
+            const userObjectId = new Types.ObjectId(userId);
+            if (!(project.managerId as Types.ObjectId).equals(userObjectId)) {
+                throw new ForbiddenException('Seul le chef de projet ou un administrateur peut supprimer ce projet');
+            }
+        }
+        await this.projectModel.findByIdAndDelete(id);
+    }
+
+    /**
+     * Close a project: set status to COMPLETED, mark all tasks as DONE, set progress to 100.
+     * Allowed for ADMIN or CHEF_PROJET.
+     */
+    async close(projectId: string, userId: string, userRole: Role): Promise<ProjectDoc> {
+        const project = await this.findOne(projectId, userId, userRole);
+
+        if (userRole !== Role.ADMIN) {
+            const userObjectId = new Types.ObjectId(userId);
+            if (!(project.managerId as any)._id.equals(userObjectId)) {
+                throw new ForbiddenException('Seul le chef de projet ou un administrateur peut clôturer ce projet');
+            }
+        }
+
+        if (project.status === ProjectStatus.COMPLETED) {
+            return project;
+        }
+
+        const taskModel = this.projectModel.db.model('Task');
+        await taskModel.updateMany(
+            { projectId: new Types.ObjectId(projectId) },
+            { $set: { status: 'DONE' } },
+        );
+
+        project.status = ProjectStatus.COMPLETED;
+        project.progress = 100;
+        await project.save();
+
+        return this.findOne(projectId, userId, userRole);
     }
 
     async updateProgress(id: string): Promise<void> {

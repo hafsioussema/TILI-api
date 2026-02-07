@@ -98,9 +98,14 @@ export class DocumentsService {
             throw new NotFoundException('Document non trouvé');
         }
 
-        // Check access for consultants
+        // Check access for consultants (projectId may be populated → object with _id, or raw ObjectId)
         if (userRole === Role.CONSULTANT) {
-            await this.checkProjectAccess(document.projectId.toString(), userId, userRole);
+            const projectIdRaw = document.projectId as any;
+            const projectIdStr =
+                (projectIdRaw && typeof projectIdRaw === 'object' && projectIdRaw._id != null)
+                    ? projectIdRaw._id.toString()
+                    : (projectIdRaw != null ? String(projectIdRaw) : '');
+            await this.checkProjectAccess(projectIdStr, userId, userRole);
         }
 
         return document;

@@ -14,9 +14,10 @@ export class CreateProjectDto {
     @IsOptional()
     description?: string;
 
-    @ApiProperty({ description: 'ID du chef de projet' })
+    @ApiPropertyOptional({ description: 'ID du chef de projet (si absent, le créateur est associé automatiquement)' })
     @IsMongoId()
-    managerId: string;
+    @IsOptional()
+    managerId?: string;
 
     @ApiPropertyOptional({ description: 'Liste des IDs des membres' })
     @IsArray()

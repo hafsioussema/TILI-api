@@ -91,7 +91,8 @@ export class DocumentsController {
         @Body() createDto: CreateDocumentDto,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.create(createDto, file, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.documentsService.create(createDto, file, userId, user.role);
     }
 
     @Get()
@@ -100,7 +101,8 @@ export class DocumentsController {
         @Query() query: QueryDocumentsDto,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.findAll(query, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.documentsService.findAll(query, userId, user.role);
     }
 
     @Get(':id')
@@ -109,7 +111,8 @@ export class DocumentsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.findOne(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.documentsService.findOne(id, userId, user.role);
     }
 
     @Get(':id/download')
@@ -119,7 +122,8 @@ export class DocumentsController {
         @CurrentUser() user: any,
         @Res() res: Response,
     ) {
-        const result = await this.documentsService.download(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        const result = await this.documentsService.download(id, userId, user.role);
         res.download(result.path, result.name);
     }
 
@@ -130,7 +134,8 @@ export class DocumentsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.getHistory(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.documentsService.getHistory(id, userId, user.role);
     }
 
     @Put(':id')
@@ -162,7 +167,8 @@ export class DocumentsController {
         @UploadedFile() file: Express.Multer.File,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.update(id, updateDto, file, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.documentsService.update(id, updateDto, file, userId, user.role);
     }
 
     @Delete(':id')
@@ -172,7 +178,8 @@ export class DocumentsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        await this.documentsService.remove(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        await this.documentsService.remove(id, userId, user.role);
         return { message: 'Document supprimé avec succès' };
     }
 }

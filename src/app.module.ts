@@ -8,6 +8,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { ProjectsModule } from './projects/projects.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { TasksModule } from './tasks/tasks.module';
+import { BotModule } from './bot/bot.module';
 import { UsersService } from './users/users.service';
 
 @Module({
@@ -35,6 +36,7 @@ import { UsersService } from './users/users.service';
     ProjectsModule,
     DashboardModule,
     TasksModule,
+    BotModule,
   ],
 })
 export class AppModule implements OnModuleInit {

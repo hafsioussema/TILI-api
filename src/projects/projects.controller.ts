@@ -28,8 +28,9 @@ export class ProjectsController {
     @Post()
     @ApiOperation({ summary: 'Create a new project' })
     @Roles(Role.ADMIN, Role.CHEF_PROJET)
-    async create(@Body() createDto: CreateProjectDto) {
-        return this.projectsService.create(createDto);
+    async create(@Body() createDto: CreateProjectDto, @CurrentUser() user: any) {
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.create(createDto, userId);
     }
 
     @Get()
@@ -38,7 +39,8 @@ export class ProjectsController {
         @Query() query: QueryProjectsDto,
         @CurrentUser() user: any,
     ) {
-        return this.projectsService.findAll(query, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.findAll(query, userId, user.role);
     }
 
     @Get(':id/history')
@@ -47,7 +49,19 @@ export class ProjectsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        return this.projectsService.getHistory(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.getHistory(id, userId, user.role);
+    }
+
+    @Post(':id/close')
+    @ApiOperation({ summary: 'Close project (complete all tasks, set status to COMPLETED)' })
+    @Roles(Role.ADMIN, Role.CHEF_PROJET)
+    async close(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.close(id, userId, user.role);
     }
 
     @Get(':id')
@@ -56,7 +70,8 @@ export class ProjectsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        return this.projectsService.findOne(id, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.findOne(id, userId, user.role);
     }
 
     @Put(':id')
@@ -67,14 +82,16 @@ export class ProjectsController {
         @Body() updateDto: UpdateProjectDto,
         @CurrentUser() user: any,
     ) {
-        return this.projectsService.update(id, updateDto, user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.projectsService.update(id, updateDto, userId, user.role);
     }
 
     @Delete(':id')
     @ApiOperation({ summary: 'Delete a project' })
-    @Roles(Role.ADMIN)
-    async remove(@Param('id') id: string) {
-        await this.projectsService.remove(id);
+    @Roles(Role.ADMIN, Role.CHEF_PROJET)
+    async remove(@Param('id') id: string, @CurrentUser() user: any) {
+        const userId = user.userId ?? user.sub;
+        await this.projectsService.remove(id, userId, user.role);
         return { message: 'Projet supprimé avec succès' };
     }
 }

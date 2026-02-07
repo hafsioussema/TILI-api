@@ -15,7 +15,8 @@ export class DashboardController {
     @Get('stats')
     @ApiOperation({ summary: 'Get dashboard statistics' })
     async getStats(@CurrentUser() user: any) {
-        return this.dashboardService.getStats(user.sub, user.role);
+        const userId = user.userId ?? user.sub;
+        return this.dashboardService.getStats(userId, user.role);
     }
 
     @Get('activity')
@@ -24,6 +25,7 @@ export class DashboardController {
         @CurrentUser() user: any,
         @Query('limit') limit?: number,
     ) {
-        return this.dashboardService.getGlobalActivity(user.sub, user.role, limit);
+        const userId = user.userId ?? user.sub;
+        return this.dashboardService.getGlobalActivity(userId, user.role, limit);
     }
 }

@@ -70,4 +70,13 @@ export class TasksService {
         // Update project progress
         await this.projectsService.updateProgress(projectId);
     }
+
+    /** Met à jour le statut de toutes les tâches d'un projet. */
+    async updateAllByProject(projectId: string, status: string): Promise<{ count: number }> {
+        const result = await this.taskModel
+            .updateMany({ projectId: new Types.ObjectId(projectId) }, { status })
+            .exec();
+        await this.projectsService.updateProgress(projectId);
+        return { count: result.modifiedCount };
+    }
 }

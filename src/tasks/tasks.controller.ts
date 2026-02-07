@@ -4,6 +4,8 @@ import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto, QueryTasksDto } from './dto/task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '../common/enums/role.enum';
 
 @ApiTags('Tasks')
 @ApiBearerAuth()
@@ -38,6 +40,7 @@ export class TasksController {
 
     @Delete(':id')
     @ApiOperation({ summary: 'Supprimer une tâche' })
+    @Roles(Role.ADMIN, Role.CHEF_PROJET)
     async remove(@Param('id') id: string) {
         return this.tasksService.remove(id);
     }
