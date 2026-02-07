@@ -1,5 +1,5 @@
 
-import { Controller, Get, Post, Delete, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, ForbiddenException, Res } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MeetingsService } from './meetings.service';
 import { MeetingsSchedulerService } from './meetings-scheduler.service';
@@ -61,9 +61,10 @@ export class MeetingsController {
             callback(null, true);
         },
     }))
-    uploadAudio(@Param('id') id: string, @UploadedFile() file: Express.Multer.File) {
+    uploadAudio(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @Body('isLive') isLive: string) {
         if (!file) throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
-        return this.meetingsService.uploadAudio(id, file);
+        const isLiveBool = isLive === 'true';
+        return this.meetingsService.uploadAudio(id, file, isLiveBool);
     }
 
     // Legacy or shortcut
@@ -119,5 +120,14 @@ export class MeetingsController {
     @Delete(':id')
     remove(@Param('id') id: string) {
         return this.meetingsService.remove(id);
+    }
+
+    @Get(':id/file')
+    async getFile(@Param('id') id: string, @Res() res: any) {
+        const meeting = await this.meetingsService.findOne(id);
+        if (!meeting || !meeting.audioUrl) {
+            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+        }
+        return res.sendFile(meeting.audioUrl, { root: './' });
     }
 }

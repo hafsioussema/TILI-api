@@ -46,7 +46,7 @@ export class MeetingsService {
         return meeting;
     }
 
-    async uploadAudio(meetingId: string, file: Express.Multer.File): Promise<Meeting> {
+    async uploadAudio(meetingId: string, file: Express.Multer.File, isLive: boolean = false): Promise<Meeting> {
         const meeting = await this.prisma.meeting.update({
             where: { id: meetingId },
             data: {
@@ -56,7 +56,7 @@ export class MeetingsService {
         });
 
         // Async processing
-        this.processMeeting(meetingId, file.path);
+        this.processMeeting(meetingId, file.path, isLive);
 
         return meeting;
     }
@@ -71,7 +71,7 @@ export class MeetingsService {
         }).then(m => this.uploadAudio(m.id, file));
     }
 
-    private async processMeeting(meetingId: string, filePath: string) {
+    private async processMeeting(meetingId: string, filePath: string, isLive: boolean = false) {
         this.logger.log(`Processing meeting ${meetingId}...`);
         try {
             // 3. Transcribe
@@ -79,13 +79,54 @@ export class MeetingsService {
 
             const isContentEmpty = !text || text.trim().length < 10; // Simple check for "empty" content
 
-            await this.prisma.transcript.create({
-                data: {
-                    meetingId,
-                    content: isContentEmpty ? "Aucun contenu audio détecté." : text,
-                    segments: JSON.stringify(segments),
-                },
-            });
+            // For live meetings, append to existing transcript; for imports, create/replace
+            if (isLive) {
+                // Check if transcript already exists
+                const existingTranscript = await this.prisma.transcript.findUnique({
+                    where: { meetingId }
+                });
+
+                if (existingTranscript) {
+                    // Append new content
+                    const newContent = isContentEmpty
+                        ? "\n\n[Segment vide - aucun contenu audio détecté]"
+                        : `\n\n--- Nouveau segment ---\n${text}`;
+
+                    await this.prisma.transcript.update({
+                        where: { meetingId },
+                        data: {
+                            content: existingTranscript.content + newContent,
+                            segments: JSON.stringify([
+                                ...JSON.parse(existingTranscript.segments || '[]'),
+                                ...segments
+                            ]),
+                        },
+                    });
+                } else {
+                    // First recording - create new
+                    await this.prisma.transcript.create({
+                        data: {
+                            meetingId,
+                            content: isContentEmpty ? "Aucun contenu audio détecté." : text,
+                            segments: JSON.stringify(segments),
+                        },
+                    });
+                }
+            } else {
+                // Import mode - upsert (replace if exists)
+                await this.prisma.transcript.upsert({
+                    where: { meetingId },
+                    create: {
+                        meetingId,
+                        content: isContentEmpty ? "Aucun contenu audio détecté." : text,
+                        segments: JSON.stringify(segments),
+                    },
+                    update: {
+                        content: isContentEmpty ? "Aucun contenu audio détecté." : text,
+                        segments: JSON.stringify(segments),
+                    },
+                });
+            }
 
             // 4. Summarize
             let summaryContent = "Aucun résumé disponible car l'enregistrement est trop court ou vide.";
@@ -93,12 +134,44 @@ export class MeetingsService {
                 summaryContent = await this.aiSummaryService.generateSummary(text);
             }
 
-            await this.prisma.summary.create({
-                data: {
-                    meetingId,
-                    content: summaryContent,
-                },
-            });
+            if (isLive) {
+                // For live meetings, append to existing summary
+                const existingSummary = await this.prisma.summary.findUnique({
+                    where: { meetingId }
+                });
+
+                if (existingSummary) {
+                    const newSummaryContent = isContentEmpty
+                        ? "\n\n[Segment vide]"
+                        : `\n\n--- Nouveau segment ---\n${summaryContent}`;
+
+                    await this.prisma.summary.update({
+                        where: { meetingId },
+                        data: {
+                            content: existingSummary.content + newSummaryContent,
+                        },
+                    });
+                } else {
+                    await this.prisma.summary.create({
+                        data: {
+                            meetingId,
+                            content: summaryContent,
+                        },
+                    });
+                }
+            } else {
+                // Import mode - upsert
+                await this.prisma.summary.upsert({
+                    where: { meetingId },
+                    create: {
+                        meetingId,
+                        content: summaryContent,
+                    },
+                    update: {
+                        content: summaryContent,
+                    },
+                });
+            }
 
             // 5. Extract Actions
             if (!isContentEmpty) {
@@ -117,84 +190,86 @@ export class MeetingsService {
                 }
             }
 
-            // 6. Simulate Attendance Data (since we don't have real multi-user tracking yet)
-            // Retrieve the meeting to get participants and minPresence
-            const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
-            let attendanceData = {};
+            // 6. Simulate Attendance and Completion ONLY if NOT Live (Import Mode)
+            if (!isLive) {
+                // Retrieve the meeting to get participants and minPresence
+                const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
+                let attendanceData = {};
 
-            if (meeting) {
-                const participants = JSON.parse(meeting.participants || '[]');
-                const minDuration = meeting.minPresenceDuration || 0;
+                if (meeting) {
+                    const participants = JSON.parse(meeting.participants || '[]');
+                    const minDuration = meeting.minPresenceDuration || 0;
 
-                // Estimate duration from transcription segments if available
-                let estimatedDuration = 0;
-                if (segments && segments.length > 0) {
-                    // Check if segments have 'end' or 'end_timestamp'
-                    const lastSegment = segments[segments.length - 1];
-                    // OpenAI verbose_json usually has 'end'
-                    if (lastSegment && typeof lastSegment === 'object' && 'end' in lastSegment) {
-                        estimatedDuration = Math.ceil(Number(lastSegment['end']));
+                    // Estimate duration from transcription segments if available
+                    let estimatedDuration = 0;
+                    if (segments && segments.length > 0) {
+                        // Check if segments have 'end' or 'end_timestamp'
+                        const lastSegment = segments[segments.length - 1];
+                        // OpenAI verbose_json usually has 'end'
+                        if (lastSegment && typeof lastSegment === 'object' && 'end' in lastSegment) {
+                            estimatedDuration = Math.ceil(Number(lastSegment['end']));
+                        }
                     }
+
+                    // Fallback to file size approx (1 min per MB for video/audio mix is rough but better than nothing or random 30m)
+                    if (estimatedDuration === 0) {
+                        try {
+                            const stats = fs.statSync(filePath);
+                            // Very rough: 1MB ~ 10s for high quality video? No, let's assume audio upload mainly or use very rough.
+                            estimatedDuration = Math.max(10, Math.floor(stats.size / 50000));
+                        } catch (e) {
+                            estimatedDuration = 60; // Default 1 min
+                        }
+                    }
+
+                    attendanceData = participants.reduce((acc, email) => {
+                        // Start with 0 duration (Absent) for realism in single-player demo
+                        let presence = 0;
+
+                        // For demo purposes, we randomly assign status:
+                        // 60% chance: Fully Present (duration = meeting duration)
+                        // 20% chance: Partially Present (random duration < meeting duration)
+                        // 20% chance: Absent (0s)
+                        const rand = Math.random();
+                        if (rand > 0.4) {
+                            presence = estimatedDuration;
+                        } else if (rand > 0.2) {
+                            presence = Math.floor(estimatedDuration * Math.random());
+                        } else {
+                            presence = 0;
+                        }
+
+                        // Strict sanity check: cannot stay longer than meeting
+                        if (presence > estimatedDuration) presence = estimatedDuration;
+
+                        let status = 'INFO';
+                        if (estimatedDuration >= minDuration) {
+                            status = presence >= minDuration ? 'PRESENT' : 'ABSENT';
+                        } else {
+                            status = 'N/A'; // Duration too short to count
+                        }
+
+                        // Special case: if presence is 0, always ABSENT unless N/A
+                        if (presence === 0 && status !== 'N/A') status = 'ABSENT';
+
+                        acc[email] = {
+                            duration: presence,
+                            status: status,
+                            meetingDuration: estimatedDuration
+                        };
+                        return acc;
+                    }, {});
                 }
 
-                // Fallback to file size approx (1 min per MB for video/audio mix is rough but better than nothing or random 30m)
-                if (estimatedDuration === 0) {
-                    try {
-                        const stats = fs.statSync(filePath);
-                        // Very rough: 1MB ~ 10s for high quality video? No, let's assume audio upload mainly or use very rough.
-                        estimatedDuration = Math.max(10, Math.floor(stats.size / 50000));
-                    } catch (e) {
-                        estimatedDuration = 60; // Default 1 min
-                    }
-                }
-
-                attendanceData = participants.reduce((acc, email) => {
-                    // Start with 0 duration (Absent) for realism in single-player demo
-                    let presence = 0;
-
-                    // For demo purposes, we randomly assign status:
-                    // 60% chance: Fully Present (duration = meeting duration)
-                    // 20% chance: Partially Present (random duration < meeting duration)
-                    // 20% chance: Absent (0s)
-                    const rand = Math.random();
-                    if (rand > 0.4) {
-                        presence = estimatedDuration;
-                    } else if (rand > 0.2) {
-                        presence = Math.floor(estimatedDuration * Math.random());
-                    } else {
-                        presence = 0;
-                    }
-
-                    // Strict sanity check: cannot stay longer than meeting
-                    if (presence > estimatedDuration) presence = estimatedDuration;
-
-                    let status = 'INFO';
-                    if (estimatedDuration >= minDuration) {
-                        status = presence >= minDuration ? 'PRESENT' : 'ABSENT';
-                    } else {
-                        status = 'N/A'; // Duration too short to count
-                    }
-
-                    // Special case: if presence is 0, always ABSENT unless N/A
-                    if (presence === 0 && status !== 'N/A') status = 'ABSENT';
-
-                    acc[email] = {
-                        duration: presence,
-                        status: status,
-                        meetingDuration: estimatedDuration
-                    };
-                    return acc;
-                }, {});
+                // 7. Complete and Save Attendance
+                await this.prisma.meeting.update({
+                    where: { id: meetingId },
+                    data: {
+                        status: 'COMPLETED',
+                        attendance: JSON.stringify(attendanceData)
+                    },
+                });
             }
-
-            // 7. Complete and Save Attendance
-            await this.prisma.meeting.update({
-                where: { id: meetingId },
-                data: {
-                    status: 'COMPLETED',
-                    attendance: JSON.stringify(attendanceData)
-                },
-            });
 
             this.logger.log(`Meeting ${meetingId} processing completed.`);
 
@@ -236,7 +311,7 @@ export class MeetingsService {
             },
         });
     }
-    async update(id: string, data: { title?: string; date?: string; participants?: string[]; minPresenceDuration?: number }): Promise<Meeting> {
+    async update(id: string, data: { title?: string; date?: string; participants?: string[]; minPresenceDuration?: number; status?: string; attendance?: string }): Promise<Meeting> {
         const meeting = await this.prisma.meeting.findUnique({ where: { id } });
         if (!meeting) {
             throw new Error('Meeting not found');
@@ -250,6 +325,8 @@ export class MeetingsService {
         if (data.date) updateData.date = new Date(data.date);
         if (data.participants) updateData.participants = JSON.stringify(data.participants);
         if (data.minPresenceDuration !== undefined) updateData.minPresenceDuration = data.minPresenceDuration;
+        if (data.status) updateData.status = data.status as any;
+        if (data.attendance) updateData.attendance = data.attendance;
 
         const updatedMeeting = await this.prisma.meeting.update({
             where: { id },
