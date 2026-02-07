@@ -436,4 +436,49 @@ export class MeetingsService {
 
         await this.prisma.meeting.delete({ where: { id } });
     }
+
+    // ============== Document Association Methods ==============
+
+    async addDocument(meetingId: string, documentId: string): Promise<Meeting> {
+        const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
+        if (!meeting) {
+            throw new Error('Meeting not found');
+        }
+
+        const currentDocIds: string[] = JSON.parse(meeting.documentIds || '[]');
+        
+        // Avoid duplicates
+        if (!currentDocIds.includes(documentId)) {
+            currentDocIds.push(documentId);
+        }
+
+        return this.prisma.meeting.update({
+            where: { id: meetingId },
+            data: { documentIds: JSON.stringify(currentDocIds) },
+        });
+    }
+
+    async removeDocument(meetingId: string, documentId: string): Promise<Meeting> {
+        const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
+        if (!meeting) {
+            throw new Error('Meeting not found');
+        }
+
+        const currentDocIds: string[] = JSON.parse(meeting.documentIds || '[]');
+        const updatedDocIds = currentDocIds.filter(id => id !== documentId);
+
+        return this.prisma.meeting.update({
+            where: { id: meetingId },
+            data: { documentIds: JSON.stringify(updatedDocIds) },
+        });
+    }
+
+    async getDocuments(meetingId: string): Promise<string[]> {
+        const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
+        if (!meeting) {
+            return [];
+        }
+
+        return JSON.parse(meeting.documentIds || '[]');
+    }
 }

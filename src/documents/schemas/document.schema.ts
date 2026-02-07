@@ -32,8 +32,12 @@ export class TiliDocument {
     version: number;
 
     @ApiProperty({ description: 'ID du projet associé' })
-    @Prop({ type: Types.ObjectId, ref: 'Project', required: true })
+    @Prop({ type: Types.ObjectId, ref: 'Project', required: false })
     projectId: Types.ObjectId;
+
+    @ApiPropertyOptional({ description: 'ID de la réunion associée' })
+    @Prop({ type: String, required: false })
+    meetingId?: string;
 
     @ApiProperty({ description: 'ID de l\'utilisateur qui a uploadé le document' })
     @Prop({ type: Types.ObjectId, ref: 'User', required: true })
