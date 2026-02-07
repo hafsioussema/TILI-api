@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Meeting {
+  id          String   @id @default(uuid())
+  title       String
+  date        DateTime @default(now())
+  duration    Int?     // Duration in seconds
+  status      String   @default("SCHEDULED") // SCHEDULED, UPLOADED, PROCESSING, COMPLETED, FAILED
+  audioUrl    String?
+  participants String   @default("[]") // JSON string of invited emails
+  minPresenceDuration Int @default(0) // Minimum seconds to be considered PRESENT
+  attendance  String?  // JSON string storing attendance status { [email]: { status: 'PRESENT'|'ABSENT', duration: number } }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transcript  Transcript?
+  summary     Summary?
+  actions     ActionItem[]
+  embeddings  Embedding[]
+}
+
+model Transcript {
+  id          String   @id @default(uuid())
+  meetingId   String   @unique
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  content     String   // Full text content
+  segments    String   // JSON string of segments (timestamp, text)
+  createdAt   DateTime @default(now())
+}
+
+model Summary {
+  id          String   @id @default(uuid())
+  meetingId   String   @unique
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  content     String   // Markdown content
+  createdAt   DateTime @default(now())
+}
+
+model ActionItem {
+  id          String   @id @default(uuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  description String
+  assignee    String?
+  dueDate     DateTime?
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status      String   @default("PENDING") // PENDING, IN_PROGRESS, DONE
+  createdAt   DateTime @default(now())
+}
+
+model Embedding {
+  id          String   @id @default(uuid())
+  meetingId   String
+  meeting     Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  vector      String   // Copied as string/JSON for SQLite compatibility (or specific vector type if using pgvector)
+  content     String   // The chunk of text this vector represents
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userEmail String   // The user who receives the notification (using email as ID is common in this app)
+  type      String   // INVITATION, UPDATE, CANCELLATION, REMINDER
+  title     String
+  message   String
+  link      String?  // Optional link to redirect, e.g., /meetings/id
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
@@ -152,8 +152,9 @@ describe('AuthController (e2e)', () => {
       });
 
       // Change the must change password flag for testing
+      const user = await usersService.findByEmail('consultant@test.com');
       await usersService.updatePassword(
-        (await usersService.findByEmail('consultant@test.com'))._id.toString(),
+        user!._id.toString(),
         'Consultant123!',
       );
 
