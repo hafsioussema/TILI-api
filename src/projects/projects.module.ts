@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { DocumentsModule } from '../documents/documents.module';
+import { TasksModule } from '../tasks/tasks.module';
 import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
 import { Project, ProjectSchema } from './schemas/project.schema';
@@ -9,6 +11,8 @@ import { Project, ProjectSchema } from './schemas/project.schema';
         MongooseModule.forFeature([
             { name: Project.name, schema: ProjectSchema },
         ]),
+        DocumentsModule,
+        forwardRef(() => TasksModule),
     ],
     controllers: [ProjectsController],
     providers: [ProjectsService],

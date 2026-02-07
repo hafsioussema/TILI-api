@@ -25,16 +25,16 @@ export class CreateProjectDto {
     members?: string[];
 
     @ApiPropertyOptional({ description: 'Date de début' })
-    @IsDate()
-    @Type(() => Date)
     @IsOptional()
     startDate?: Date;
 
     @ApiPropertyOptional({ description: 'Date de fin prévue' })
-    @IsDate()
-    @Type(() => Date)
     @IsOptional()
     endDate?: Date;
+
+    @ApiPropertyOptional({ description: 'Progression du projet (0-100)' })
+    @IsOptional()
+    progress?: number;
 }
 
 export class UpdateProjectDto {
@@ -64,6 +64,10 @@ export class UpdateProjectDto {
     @Type(() => Date)
     @IsOptional()
     endDate?: Date;
+
+    @ApiPropertyOptional({ description: 'Progression du projet (0-100)' })
+    @IsOptional()
+    progress?: number;
 }
 
 export class QueryProjectsDto {

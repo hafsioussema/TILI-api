@@ -41,6 +41,15 @@ export class ProjectsController {
         return this.projectsService.findAll(query, user.sub, user.role);
     }
 
+    @Get(':id/history')
+    @ApiOperation({ summary: 'Get project activity history' })
+    async getHistory(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        return this.projectsService.getHistory(id, user.sub, user.role);
+    }
+
     @Get(':id')
     @ApiOperation({ summary: 'Get project details' })
     async findOne(

@@ -1,14 +1,32 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Project, ProjectDoc } from './schemas/project.schema';
 import { CreateProjectDto, UpdateProjectDto, QueryProjectsDto } from './dto/project.dto';
 import { Role } from '../common/enums/role.enum';
+import { DocumentsService } from '../documents/documents.service';
+import { TasksService } from '../tasks/tasks.service';
+
+export interface ProjectHistoryItem {
+    type: 'project_created' | 'document_added' | 'task_created';
+    date: string;
+    label: string;
+    metadata?: {
+        documentId?: string;
+        documentName?: string;
+        taskId?: string;
+        taskTitle?: string;
+        taskStatus?: string;
+        userName?: string;
+    };
+}
 
 @Injectable()
 export class ProjectsService {
     constructor(
         @InjectModel(Project.name) private projectModel: Model<ProjectDoc>,
+        private readonly documentsService: DocumentsService,
+        @Inject(forwardRef(() => TasksService)) private readonly tasksService: TasksService,
     ) { }
 
     async create(createDto: CreateProjectDto): Promise<ProjectDoc> {
@@ -17,7 +35,8 @@ export class ProjectsService {
             managerId: new Types.ObjectId(createDto.managerId),
             members: createDto.members?.map(m => new Types.ObjectId(m)) || [],
         });
-        return project.save();
+        const savedProject = await project.save();
+        return this.findOne(savedProject._id.toString(), '', Role.ADMIN);
     }
 
     async findAll(query: QueryProjectsDto, userId: string, userRole: Role): Promise<ProjectDoc[]> {
@@ -97,5 +116,72 @@ export class ProjectsService {
         if (!result) {
             throw new NotFoundException('Projet non trouvé');
         }
+    }
+
+    async updateProgress(id: string): Promise<void> {
+        const taskModel = this.projectModel.db.model('Task');
+        const tasks = await taskModel.find({ projectId: new Types.ObjectId(id) });
+
+        if (tasks.length === 0) {
+            await this.projectModel.findByIdAndUpdate(id, { progress: 0 });
+            return;
+        }
+
+        const completedTasks = tasks.filter((t: any) => t.status === 'DONE').length;
+        const progress = Math.round((completedTasks / tasks.length) * 100);
+
+        await this.projectModel.findByIdAndUpdate(id, { progress });
+    }
+
+    /**
+     * Get project activity history (timeline of creation, documents, tasks)
+     */
+    async getHistory(projectId: string, userId: string, userRole: Role): Promise<ProjectHistoryItem[]> {
+        const project = await this.findOne(projectId, userId, userRole);
+        const items: ProjectHistoryItem[] = [];
+
+        items.push({
+            type: 'project_created',
+            date: (project as any).createdAt?.toISOString?.() ?? new Date().toISOString(),
+            label: 'Projet créé',
+            metadata: { userName: (project.managerId as any)?.prenom ? `${(project.managerId as any).prenom} ${(project.managerId as any).nom}` : undefined },
+        });
+
+        const documents = await this.documentsService.findAll(
+            { projectId },
+            userId,
+            userRole,
+        );
+        for (const doc of documents) {
+            const uploadedBy = (doc as any).uploadedBy;
+            const userName = uploadedBy?.prenom ? `${uploadedBy.prenom} ${uploadedBy.nom}` : undefined;
+            items.push({
+                type: 'document_added',
+                date: (doc as any).createdAt?.toISOString?.() ?? new Date().toISOString(),
+                label: `Document ajouté : ${doc.name}`,
+                metadata: {
+                    documentId: doc._id.toString(),
+                    documentName: doc.name,
+                    userName,
+                },
+            });
+        }
+
+        const tasks = await this.tasksService.findAll({ projectId });
+        for (const task of tasks) {
+            items.push({
+                type: 'task_created',
+                date: (task as any).createdAt?.toISOString?.() ?? new Date().toISOString(),
+                label: `Tâche créée : ${task.title}`,
+                metadata: {
+                    taskId: task._id.toString(),
+                    taskTitle: task.title,
+                    taskStatus: (task as any).status,
+                },
+            });
+        }
+
+        items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return items.slice(0, 50);
     }
 }

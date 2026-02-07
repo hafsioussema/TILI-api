@@ -91,7 +91,7 @@ export class DocumentsController {
         @Body() createDto: CreateDocumentDto,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.create(createDto, file, user.sub);
+        return this.documentsService.create(createDto, file, user.sub, user.role);
     }
 
     @Get()
@@ -162,7 +162,7 @@ export class DocumentsController {
         @UploadedFile() file: Express.Multer.File,
         @CurrentUser() user: any,
     ) {
-        return this.documentsService.update(id, updateDto, file, user.sub);
+        return this.documentsService.update(id, updateDto, file, user.sub, user.role);
     }
 
     @Delete(':id')
@@ -172,7 +172,7 @@ export class DocumentsController {
         @Param('id') id: string,
         @CurrentUser() user: any,
     ) {
-        await this.documentsService.remove(id, user.sub);
+        await this.documentsService.remove(id, user.sub, user.role);
         return { message: 'Document supprimé avec succès' };
     }
 }

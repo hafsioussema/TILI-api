@@ -6,6 +6,8 @@ import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ProjectsModule } from './projects/projects.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { TasksModule } from './tasks/tasks.module';
 import { UsersService } from './users/users.service';
 
 @Module({
@@ -31,6 +33,8 @@ import { UsersService } from './users/users.service';
     EmailModule,
     DocumentsModule,
     ProjectsModule,
+    DashboardModule,
+    TasksModule,
   ],
 })
 export class AppModule implements OnModuleInit {
