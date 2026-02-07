@@ -50,7 +50,10 @@ export class BotService {
     private readonly conversationService: ConversationService,
   ) {
     const apiKey = this.configService.get<string>('GROQ_API_KEY');
-    this.model = this.configService.get<string>('GROQ_MODEL', 'llama-3.3-70b-versatile');
+    this.model = this.configService.get<string>(
+      'GROQ_MODEL',
+      'llama-3.3-70b-versatile',
+    );
     if (apiKey) {
       this.groq = new Groq({ apiKey });
     }
@@ -106,17 +109,36 @@ export class BotService {
     userRole: Role,
   ): Promise<{ error?: string; projectId?: string }> {
     const raw = (projectIdOrName || '').trim();
-    if (!raw) return { error: 'Indiquez le nom ou l\'identifiant du projet (ex: projectName: "aa").' };
+    if (!raw)
+      return {
+        error:
+          'Indiquez le nom ou l\'identifiant du projet (ex: projectName: "aa").',
+      };
     const trimmed = this.normalizeProjectIdOrName(raw) || raw;
-    if (!trimmed) return { error: 'Indiquez le nom du projet (ex: projectName: "aa").' };
+    if (!trimmed)
+      return { error: 'Indiquez le nom du projet (ex: projectName: "aa").' };
     if (this.isValidObjectId(trimmed)) return { projectId: trimmed };
-    const list = await this.projectsService.findAll({ search: trimmed }, userId, userRole);
-    const exact = list.find((p: any) => p.name && String(p.name).toLowerCase() === trimmed.toLowerCase());
+    const list = await this.projectsService.findAll(
+      { search: trimmed },
+      userId,
+      userRole,
+    );
+    const exact = list.find(
+      (p: any) =>
+        p.name && String(p.name).toLowerCase() === trimmed.toLowerCase(),
+    );
     const candidate = exact ?? list[0];
-    const idStr = candidate ? (candidate._id?.toString?.() ?? (candidate as any).id?.toString?.()) : null;
+    const idStr = candidate
+      ? (candidate._id?.toString?.() ?? (candidate as any).id?.toString?.())
+      : null;
     if (idStr && this.isValidObjectId(idStr)) return { projectId: idStr };
-    if (list.length === 0) return { error: `Aucun projet trouvé pour "${trimmed}". Utilisez "list_projects" avec search pour voir les projets disponibles.` };
-    return { error: `Plusieurs projets correspondent à "${trimmed}". Soyez plus précis (ex: "${list[0].name}").` };
+    if (list.length === 0)
+      return {
+        error: `Aucun projet trouvé pour "${trimmed}". Utilisez "list_projects" avec search pour voir les projets disponibles.`,
+      };
+    return {
+      error: `Plusieurs projets correspondent à "${trimmed}". Soyez plus précis (ex: "${list[0].name}").`,
+    };
   }
 
   private async resolveTaskIdByProjectAndTitle(
@@ -125,15 +147,31 @@ export class BotService {
     userId: string,
     userRole: Role,
   ): Promise<{ error?: string; taskId?: string }> {
-    const resolved = await this.resolveProjectIdOrName(projectIdOrName, userId, userRole);
+    const resolved = await this.resolveProjectIdOrName(
+      projectIdOrName,
+      userId,
+      userRole,
+    );
     if (resolved.error || !resolved.projectId) return { error: resolved.error };
-    const list = await this.tasksService.findAll({ projectId: resolved.projectId });
+    const list = await this.tasksService.findAll({
+      projectId: resolved.projectId,
+    });
     const titleTrim = (taskTitle || '').trim().toLowerCase();
-    const exact = list.find((t: any) => t.title && String(t.title).toLowerCase() === titleTrim);
-    const candidate = exact ?? list.find((t: any) => t.title && String(t.title).toLowerCase().includes(titleTrim));
-    if (candidate) return { taskId: (candidate._id || (candidate as any).id)?.toString() };
+    const exact = list.find(
+      (t: any) => t.title && String(t.title).toLowerCase() === titleTrim,
+    );
+    const candidate =
+      exact ??
+      list.find(
+        (t: any) =>
+          t.title && String(t.title).toLowerCase().includes(titleTrim),
+      );
+    if (candidate)
+      return { taskId: (candidate._id || (candidate as any).id)?.toString() };
     if (list.length === 0) return { error: 'Aucune tâche dans ce projet.' };
-    return { error: `Aucune tâche trouvée avec le titre "${taskTitle}" dans ce projet.` };
+    return {
+      error: `Aucune tâche trouvée avec le titre "${taskTitle}" dans ce projet.`,
+    };
   }
 
   private async executeTool(
@@ -144,7 +182,7 @@ export class BotService {
   ): Promise<string> {
     const adminOrChefOnly = [Role.ADMIN, Role.CHEF_PROJET].includes(userRole);
     const consultantBlocked =
-      'Désolé, vous n\'avez pas les droits nécessaires pour cette action. Seuls les administrateurs et chefs de projet peuvent créer, modifier ou clôturer des projets.';
+      "Désolé, vous n'avez pas les droits nécessaires pour cette action. Seuls les administrateurs et chefs de projet peuvent créer, modifier ou clôturer des projets.";
 
     try {
       switch (name) {
@@ -169,13 +207,25 @@ export class BotService {
           const query: any = {};
           if (args.status) query.status = args.status;
           if (args.search) query.search = args.search;
-          const list = await this.projectsService.findAll(query, userId, userRole);
+          const list = await this.projectsService.findAll(
+            query,
+            userId,
+            userRole,
+          );
           return this.serialize({ count: list.length, projects: list });
         }
         case 'get_project': {
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
-          const project = await this.projectsService.findOne(resolved.projectId!, userId, userRole);
+          const project = await this.projectsService.findOne(
+            resolved.projectId!,
+            userId,
+            userRole,
+          );
           return this.serialize(project);
         }
         case 'create_project': {
@@ -186,11 +236,17 @@ export class BotService {
           if (userRole === Role.ADMIN) {
             const managerName = args.managerName?.trim();
             if (!managerName) {
-              return this.serialize({ error: 'En tant qu\'administrateur, veuillez indiquer le nom du chef de projet (ex: Jean Dupont).' });
+              return this.serialize({
+                error:
+                  "En tant qu'administrateur, veuillez indiquer le nom du chef de projet (ex: Jean Dupont).",
+              });
             }
-            const manager = await this.usersService.findManagerByName(managerName);
+            const manager =
+              await this.usersService.findManagerByName(managerName);
             if (!manager) {
-              return this.serialize({ error: `Aucun chef de projet trouvé pour "${managerName}". Vérifiez le nom ou utilisez list_users pour voir les disponibles.` });
+              return this.serialize({
+                error: `Aucun chef de projet trouvé pour "${managerName}". Vérifiez le nom ou utilisez list_users pour voir les disponibles.`,
+              });
             }
             managerId = (manager as any)._id.toString();
           } else {
@@ -200,7 +256,10 @@ export class BotService {
           if (args.description) createDto.description = args.description;
           if (args.endDate) createDto.endDate = new Date(args.endDate);
           if (args.memberNames && typeof args.memberNames === 'string') {
-            const names = args.memberNames.split(',').map((s: string) => s.trim()).filter(Boolean);
+            const names = args.memberNames
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean);
             const members: string[] = [];
             for (const n of names) {
               const u = await this.usersService.findUserByName(n);
@@ -208,7 +267,10 @@ export class BotService {
             }
             createDto.members = members;
           } else if (args.memberIds && typeof args.memberIds === 'string') {
-            createDto.members = args.memberIds.split(',').map((s: string) => s.trim()).filter(Boolean);
+            createDto.members = args.memberIds
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean);
           }
           const project = await this.projectsService.create(createDto, userId);
           return this.serialize({ created: true, project });
@@ -217,42 +279,90 @@ export class BotService {
           if (!adminOrChefOnly) {
             return this.serialize({ error: consultantBlocked });
           }
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
           const updateDto: any = {};
           if (args.name !== undefined) updateDto.name = args.name;
-          if (args.description !== undefined) updateDto.description = args.description;
+          if (args.description !== undefined)
+            updateDto.description = args.description;
           if (args.status) updateDto.status = args.status as ProjectStatus;
           if (args.endDate) updateDto.endDate = new Date(args.endDate);
-          if (args.memberIds !== undefined && typeof args.memberIds === 'string') {
-            updateDto.members = args.memberIds.split(',').map((s: string) => s.trim()).filter(Boolean);
+          if (
+            args.memberIds !== undefined &&
+            typeof args.memberIds === 'string'
+          ) {
+            updateDto.members = args.memberIds
+              .split(',')
+              .map((s: string) => s.trim())
+              .filter(Boolean);
           }
-          const project = await this.projectsService.update(resolved.projectId!, updateDto, userId, userRole);
+          if (args.managerId !== undefined && userRole === Role.ADMIN) {
+            updateDto.managerId = args.managerId;
+          }
+          const project = await this.projectsService.update(
+            resolved.projectId!,
+            updateDto,
+            userId,
+            userRole,
+          );
           return this.serialize({ updated: true, project });
         }
         case 'close_project': {
           if (!adminOrChefOnly) {
             return this.serialize({ error: consultantBlocked });
           }
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
-          const project = await this.projectsService.close(resolved.projectId!, userId, userRole);
+          const project = await this.projectsService.close(
+            resolved.projectId!,
+            userId,
+            userRole,
+          );
           return this.serialize({ closed: true, project });
         }
         case 'delete_project': {
           if (!adminOrChefOnly) {
             return this.serialize({ error: consultantBlocked });
           }
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
-          if (!resolved.projectId || !this.isValidObjectId(resolved.projectId)) {
-            return this.serialize({ error: 'Identifiant du projet invalide. Vérifiez le nom du projet et réessayez.' });
+          if (
+            !resolved.projectId ||
+            !this.isValidObjectId(resolved.projectId)
+          ) {
+            return this.serialize({
+              error:
+                'Identifiant du projet invalide. Vérifiez le nom du projet et réessayez.',
+            });
           }
-          await this.projectsService.remove(resolved.projectId, userId, userRole);
-          return this.serialize({ deleted: true, message: 'Projet supprimé avec succès' });
+          await this.projectsService.remove(
+            resolved.projectId,
+            userId,
+            userRole,
+          );
+          return this.serialize({
+            deleted: true,
+            message: 'Projet supprimé avec succès',
+          });
         }
         case 'list_tasks': {
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
           const query: any = { projectId: resolved.projectId };
           if (args.status) query.status = args.status;
@@ -267,10 +377,14 @@ export class BotService {
           if (!adminOrChefOnly) {
             return this.serialize({
               error:
-                'Désolé, vous n\'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent créer des tâches.',
+                "Désolé, vous n'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent créer des tâches.",
             });
           }
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
           const createDto: any = {
             projectId: resolved.projectId,
@@ -288,16 +402,18 @@ export class BotService {
           if (!adminOrChefOnly) {
             return this.serialize({
               error:
-                'Désolé, vous n\'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent modifier des tâches.',
+                "Désolé, vous n'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent modifier des tâches.",
             });
           }
           const updateDto: any = {};
           if (args.title !== undefined) updateDto.title = args.title;
-          if (args.description !== undefined) updateDto.description = args.description;
+          if (args.description !== undefined)
+            updateDto.description = args.description;
           if (args.status) updateDto.status = args.status;
           if (args.priority) updateDto.priority = args.priority;
           if (args.dueDate !== undefined) updateDto.dueDate = args.dueDate;
-          if (args.assigneeId !== undefined) updateDto.assigneeId = args.assigneeId;
+          if (args.assigneeId !== undefined)
+            updateDto.assigneeId = args.assigneeId;
           const task = await this.tasksService.update(args.taskId, updateDto);
           return this.serialize({ updated: true, task });
         }
@@ -305,38 +421,59 @@ export class BotService {
           if (!adminOrChefOnly) {
             return this.serialize({
               error:
-                'Désolé, vous n\'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent modifier les tâches.',
+                "Désolé, vous n'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent modifier les tâches.",
             });
           }
-          const resolved = await this.resolveProjectIdOrName(args.projectId || args.projectName, userId, userRole);
+          const resolved = await this.resolveProjectIdOrName(
+            args.projectId || args.projectName,
+            userId,
+            userRole,
+          );
           if (resolved.error) return this.serialize({ error: resolved.error });
-          if (!resolved.projectId || !this.isValidObjectId(resolved.projectId)) {
+          if (
+            !resolved.projectId ||
+            !this.isValidObjectId(resolved.projectId)
+          ) {
             return this.serialize({ error: 'Identifiant du projet invalide.' });
           }
           const status = (args.status as string) || 'DONE';
-          const result = await this.tasksService.updateAllByProject(resolved.projectId, status);
-          return this.serialize({ updated: result.count, message: `${result.count} tâche(s) passée(s) en ${status}.` });
+          const result = await this.tasksService.updateAllByProject(
+            resolved.projectId,
+            status,
+          );
+          return this.serialize({
+            updated: result.count,
+            message: `${result.count} tâche(s) passée(s) en ${status}.`,
+          });
         }
         case 'delete_task': {
           if (!adminOrChefOnly) {
             return this.serialize({
               error:
-                'Désolé, vous n\'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent supprimer des tâches.',
+                "Désolé, vous n'avez pas les droits nécessaires. Seuls les administrateurs et chefs de projet peuvent supprimer des tâches.",
             });
           }
           let taskId: string | undefined = args.taskId?.trim();
-          if (!taskId && (args.projectId || args.projectName) && args.taskTitle) {
+          if (
+            !taskId &&
+            (args.projectId || args.projectName) &&
+            args.taskTitle
+          ) {
             const resolvedTask = await this.resolveTaskIdByProjectAndTitle(
               args.projectId || args.projectName,
               args.taskTitle,
               userId,
               userRole,
             );
-            if (resolvedTask.error) return this.serialize({ error: resolvedTask.error });
+            if (resolvedTask.error)
+              return this.serialize({ error: resolvedTask.error });
             taskId = resolvedTask.taskId;
           }
           if (!taskId) {
-            return this.serialize({ error: 'Indiquez le taskId ou le nom du projet et le titre de la tâche (projectName, taskTitle).' });
+            return this.serialize({
+              error:
+                'Indiquez le taskId ou le nom du projet et le titre de la tâche (projectName, taskTitle).',
+            });
           }
           await this.tasksService.remove(taskId);
           return this.serialize({ deleted: true, taskId });
@@ -355,7 +492,11 @@ export class BotService {
     return { messages };
   }
 
-  async chat(dto: BotChatDto, userId: string, userRole: Role): Promise<{ reply: string }> {
+  async chat(
+    dto: BotChatDto,
+    userId: string,
+    userRole: Role,
+  ): Promise<{ reply: string }> {
     if (!this.groq) {
       return {
         reply:
@@ -365,11 +506,14 @@ export class BotService {
 
     let roleHint = '';
     if (userRole === Role.CONSULTANT) {
-      roleHint = " L'utilisateur est un CONSULTANT : il ne peut QUE consulter (lister projets, voir détails, lister tâches). S'il demande de créer/modifier/clôturer un projet ou de créer/modifier/supprimer une tâche, réponds poliment qu'il n'a pas les droits et suggère de contacter un administrateur ou chef de projet.";
+      roleHint =
+        " L'utilisateur est un CONSULTANT : il ne peut QUE consulter (lister projets, voir détails, lister tâches). S'il demande de créer/modifier/clôturer un projet ou de créer/modifier/supprimer une tâche, réponds poliment qu'il n'a pas les droits et suggère de contacter un administrateur ou chef de projet.";
     } else if (userRole === Role.ADMIN) {
-      roleHint = " L'utilisateur est ADMIN : pour créer un projet, il doit indiquer le nom du chef de projet (managerName) et les noms des membres (memberNames). Utilise list_users si besoin pour voir les noms.";
+      roleHint =
+        " L'utilisateur est ADMIN : pour créer un projet, il doit indiquer le nom du chef de projet (managerName) et les noms des membres (memberNames). Utilise list_users si besoin pour voir les noms.";
     } else {
-      roleHint = " L'utilisateur est CHEF DE PROJET : pour créer un projet, il n'a pas besoin d'indiquer de chef (le projet lui est assigné). Indique uniquement le nom du projet et les noms des membres (memberNames).";
+      roleHint =
+        " L'utilisateur est CHEF DE PROJET : pour créer un projet, il n'a pas besoin d'indiquer de chef (le projet lui est assigné). Indique uniquement le nom du projet et les noms des membres (memberNames).";
     }
     const messages: Groq.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: SYSTEM_PROMPT + roleHint },
@@ -386,14 +530,24 @@ export class BotService {
 
     messages.push({ role: 'user', content: dto.message });
 
-    const consultantReadOnlyTools = ['list_projects', 'get_project', 'list_tasks', 'get_task'];
+    const consultantReadOnlyTools = [
+      'list_projects',
+      'get_project',
+      'list_tasks',
+      'get_task',
+    ];
     const enabledTools =
       userRole === Role.CONSULTANT
-        ? TILI_TOOLS.filter((t) => consultantReadOnlyTools.includes(t.function.name))
+        ? TILI_TOOLS.filter((t) =>
+            consultantReadOnlyTools.includes(t.function.name),
+          )
         : TILI_TOOLS;
 
     let round = 0;
-    let lastMessage: Groq.Chat.ChatCompletionMessageParam = { role: 'user', content: dto.message };
+    let lastMessage: Groq.Chat.ChatCompletionMessageParam = {
+      role: 'user',
+      content: dto.message,
+    };
 
     while (round < this.maxToolRounds) {
       const completion = await this.groq.chat.completions.create({
@@ -453,7 +607,9 @@ export class BotService {
     }
 
     const finalContent = (lastMessage as any).content?.trim();
-    const reply = finalContent || "J'ai effectué les actions demandées. Consultez l'application pour voir les changements.";
+    const reply =
+      finalContent ||
+      "J'ai effectué les actions demandées. Consultez l'application pour voir les changements.";
     await this.saveMessages(userId, [
       { role: 'user', content: dto.message },
       { role: 'assistant', content: reply },
