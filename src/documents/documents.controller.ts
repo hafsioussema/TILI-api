@@ -173,7 +173,7 @@ export class DocumentsController {
 
     @Delete(':id')
     @ApiOperation({ summary: 'Delete a document' })
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, Role.CHEF_PROJET)
     async remove(
         @Param('id') id: string,
         @CurrentUser() user: any,

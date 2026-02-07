@@ -20,6 +20,7 @@ model Meeting {
   participants String   @default("[]") // JSON string of invited emails
   minPresenceDuration Int @default(0) // Minimum seconds to be considered PRESENT
   attendance  String?  // JSON string storing attendance status { [email]: { status: 'PRESENT'|'ABSENT', duration: number } }
+  documentIds String   @default("[]") // JSON string of MongoDB document IDs associated with this meeting
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

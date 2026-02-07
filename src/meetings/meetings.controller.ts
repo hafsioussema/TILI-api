@@ -130,4 +130,59 @@ export class MeetingsController {
         }
         return res.sendFile(meeting.audioUrl, { root: './' });
     }
+
+    // ============== Document Association ==============
+
+    @Post(':id/documents')
+    async addDocument(
+        @Param('id') id: string,
+        @Body() body: { documentId: string },
+        @CurrentUser() user: any,
+    ) {
+        const meeting = await this.meetingsService.findOne(id);
+        if (!meeting) throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+
+        // Security Check: Is user a participant?
+        const participants = JSON.parse(meeting.participants || '[]');
+        if (!participants.includes(user.email)) {
+            throw new ForbiddenException('You do not have permission to modify this meeting.');
+        }
+
+        return this.meetingsService.addDocument(id, body.documentId);
+    }
+
+    @Delete(':id/documents/:documentId')
+    async removeDocument(
+        @Param('id') id: string,
+        @Param('documentId') documentId: string,
+        @CurrentUser() user: any,
+    ) {
+        const meeting = await this.meetingsService.findOne(id);
+        if (!meeting) throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+
+        // Security Check: Is user a participant?
+        const participants = JSON.parse(meeting.participants || '[]');
+        if (!participants.includes(user.email)) {
+            throw new ForbiddenException('You do not have permission to modify this meeting.');
+        }
+
+        return this.meetingsService.removeDocument(id, documentId);
+    }
+
+    @Get(':id/documents')
+    async getDocuments(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        const meeting = await this.meetingsService.findOne(id);
+        if (!meeting) throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+
+        // Security Check: Is user a participant?
+        const participants = JSON.parse(meeting.participants || '[]');
+        if (!participants.includes(user.email)) {
+            throw new ForbiddenException('You do not have permission to access this meeting.');
+        }
+
+        return this.meetingsService.getDocuments(id);
+    }
 }

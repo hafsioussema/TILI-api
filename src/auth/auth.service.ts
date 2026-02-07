@@ -3,13 +3,15 @@ import {
     UnauthorizedException,
     ForbiddenException,
     Logger,
+    BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
-import { LoginDto, ChangePasswordDto, AuthResponseDto } from './dto';
+import { LoginDto, ChangePasswordDto, AuthResponseDto, ForgotPasswordDto, ResetPasswordDto } from './dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { OtpService } from './otp.service';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +21,7 @@ export class AuthService {
         private usersService: UsersService,
         private jwtService: JwtService,
         private configService: ConfigService,
+        private otpService: OtpService,
     ) { }
 
     /**
@@ -154,6 +157,44 @@ export class AuthService {
             avatar: user.avatar,
             lastLogin: user.lastLogin,
         };
+    }
+
+    /**
+     * Demande de réinitialisation de mot de passe - envoie un code OTP par email
+     */
+    async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<{ message: string }> {
+        const user = await this.usersService.findByEmail(forgotPasswordDto.email);
+
+        // On ne révèle pas si l'email existe ou non pour des raisons de sécurité
+        if (user && user.isActive) {
+            await this.otpService.generateAndSendOtp(forgotPasswordDto.email);
+            this.logger.log(`OTP envoyé pour réinitialisation: ${forgotPasswordDto.email}`);
+        }
+
+        return { message: 'Si cet email existe, un code de vérification a été envoyé.' };
+    }
+
+    /**
+     * Réinitialise le mot de passe avec le code OTP
+     */
+    async resetPassword(resetPasswordDto: ResetPasswordDto): Promise<{ message: string }> {
+        const { email, otpCode, newPassword } = resetPasswordDto;
+
+        // Vérifier le code OTP
+        await this.otpService.verifyOtp(email, otpCode);
+
+        // Trouver l'utilisateur
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new BadRequestException('Utilisateur non trouvé');
+        }
+
+        // Mettre à jour le mot de passe
+        await this.usersService.updatePassword(user._id.toString(), newPassword);
+
+        this.logger.log(`Mot de passe réinitialisé pour: ${email}`);
+
+        return { message: 'Mot de passe réinitialisé avec succès' };
     }
 
     /**
