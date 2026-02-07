@@ -10,6 +10,9 @@ import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ProjectsModule } from './projects/projects.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { TasksModule } from './tasks/tasks.module';
+import { BotModule } from './bot/bot.module';
 import { UsersService } from './users/users.service';
 import { MeetingsModule } from './meetings/meetings.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -47,6 +50,9 @@ import { NotificationsModule } from './notifications/notifications.module';
     EmailModule,
     DocumentsModule,
     ProjectsModule,
+    DashboardModule,
+    TasksModule,
+    BotModule,
     MeetingsModule,
     NotificationsModule,
   ],

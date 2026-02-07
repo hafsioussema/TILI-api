@@ -25,9 +25,10 @@ export class DocumentsService {
         createDto: CreateDocumentDto,
         file: Express.Multer.File,
         userId: string,
+        userRole: Role,
     ): Promise<TiliDocumentDoc> {
         // Check project access
-        await this.checkProjectAccess(createDto.projectId, userId, [Role.ADMIN, Role.CHEF_PROJET]);
+        await this.checkProjectAccess(createDto.projectId, userId, userRole);
 
         const document = new this.documentModel({
             name: createDto.name || file.originalname,
@@ -97,9 +98,14 @@ export class DocumentsService {
             throw new NotFoundException('Document non trouvé');
         }
 
-        // Check access for consultants
+        // Check access for consultants (projectId may be populated → object with _id, or raw ObjectId)
         if (userRole === Role.CONSULTANT) {
-            await this.checkProjectAccess(document.projectId.toString(), userId, [Role.ADMIN, Role.CHEF_PROJET, Role.CONSULTANT]);
+            const projectIdRaw = document.projectId as any;
+            const projectIdStr =
+                (projectIdRaw && typeof projectIdRaw === 'object' && projectIdRaw._id != null)
+                    ? projectIdRaw._id.toString()
+                    : (projectIdRaw != null ? String(projectIdRaw) : '');
+            await this.checkProjectAccess(projectIdStr, userId, userRole);
         }
 
         return document;
@@ -129,6 +135,7 @@ export class DocumentsService {
         updateDto: UpdateDocumentDto,
         file: Express.Multer.File | undefined,
         userId: string,
+        userRole: Role,
     ): Promise<TiliDocumentDoc> {
         const document = await this.documentModel.findOne({ _id: id, isDeleted: false });
 
@@ -136,7 +143,7 @@ export class DocumentsService {
             throw new NotFoundException('Document non trouvé');
         }
 
-        await this.checkProjectAccess(document.projectId.toString(), userId, [Role.ADMIN, Role.CHEF_PROJET]);
+        await this.checkProjectAccess(document.projectId.toString(), userId, userRole);
 
         // If new file, update version
         if (file) {
@@ -165,14 +172,14 @@ export class DocumentsService {
     /**
      * Soft delete document
      */
-    async remove(id: string, userId: string): Promise<void> {
+    async remove(id: string, userId: string, userRole: Role): Promise<void> {
         const document = await this.documentModel.findById(id);
 
         if (!document) {
             throw new NotFoundException('Document non trouvé');
         }
 
-        await this.checkProjectAccess(document.projectId.toString(), userId, [Role.ADMIN]);
+        await this.checkProjectAccess(document.projectId.toString(), userId, userRole);
 
         document.isDeleted = true;
         await document.save();
@@ -216,18 +223,22 @@ export class DocumentsService {
     /**
      * Check if user has access to project
      */
-    private async checkProjectAccess(projectId: string, userId: string, allowedRoles: Role[]): Promise<void> {
+    /**
+     * Check if user has access to project
+     */
+    private async checkProjectAccess(projectId: string, userId: string, userRole: Role): Promise<void> {
         const project = await this.projectModel.findById(projectId);
 
         if (!project) {
             throw new NotFoundException('Projet non trouvé');
         }
 
+        // Admin has access to everything
+        if (userRole === Role.ADMIN) return;
+
         const userObjectId = new Types.ObjectId(userId);
 
-        // Admin has access to everything
-        // Chef de projet has access if they are the manager
-        // Consultant has access if they are a member
+        // Check if user is manager or member
         const isManager = project.managerId.equals(userObjectId);
         const isMember = project.members.some(m => m.equals(userObjectId));
 

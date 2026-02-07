@@ -34,6 +34,10 @@ export class Project {
     @ApiPropertyOptional({ description: 'Date de fin prévue' })
     @Prop()
     endDate?: Date;
+
+    @ApiProperty({ description: 'Progression du projet (0-100)' })
+    @Prop({ default: 0, min: 0, max: 100 })
+    progress: number;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

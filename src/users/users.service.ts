@@ -74,6 +74,34 @@ export class UsersService {
     }
 
     /**
+     * Recherche un chef de projet (Admin ou Chef) par nom complet (ex: "Jean Dupont" ou "Dupont Jean")
+     */
+    async findManagerByName(fullName: string): Promise<UserDocument | null> {
+        const managers = await this.userModel
+            .find({ role: { $in: ['ADMIN', 'CHEF_PROJET'] } })
+            .select('-password')
+            .exec();
+        return this.matchUserByName(managers, fullName);
+    }
+
+    /**
+     * Recherche un utilisateur par nom (tous rôles)
+     */
+    async findUserByName(fullName: string): Promise<UserDocument | null> {
+        const all = await this.userModel.find().select('-password').exec();
+        return this.matchUserByName(all, fullName);
+    }
+
+    private matchUserByName(users: UserDocument[], fullName: string): UserDocument | null {
+        const q = fullName.trim().toLowerCase();
+        return users.find((u) => {
+            const prenomNom = `${(u.prenom || '').toLowerCase()} ${(u.nom || '').toLowerCase()}`.trim();
+            const nomPrenom = `${(u.nom || '').toLowerCase()} ${(u.prenom || '').toLowerCase()}`.trim();
+            return prenomNom.includes(q) || nomPrenom.includes(q) || (u.nom?.toLowerCase().includes(q)) || (u.prenom?.toLowerCase().includes(q));
+        }) || null;
+    }
+
+    /**
      * Récupère un utilisateur par son ID
      */
     async findById(id: string): Promise<UserDocument> {
