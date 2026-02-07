@@ -1,12 +1,19 @@
+
 import { Module, OnModuleInit } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { EmailModule } from './email/email.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ProjectsModule } from './projects/projects.module';
 import { UsersService } from './users/users.service';
+import { MeetingsModule } from './meetings/meetings.module';
+import { NotificationsModule } from './notifications/notifications.module';
+
 
 @Module({
   imports: [
@@ -14,6 +21,15 @@ import { UsersService } from './users/users.service';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+    }),
+
+    // Schedule Module for Cron Jobs
+    ScheduleModule.forRoot(),
+
+    // Static Files (for Uploads)
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      serveRoot: '/uploads',
     }),
 
     // Database
@@ -31,7 +47,10 @@ import { UsersService } from './users/users.service';
     EmailModule,
     DocumentsModule,
     ProjectsModule,
+    MeetingsModule,
+    NotificationsModule,
   ],
+  providers: [],
 })
 export class AppModule implements OnModuleInit {
   constructor(
