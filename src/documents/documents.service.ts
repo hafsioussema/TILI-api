@@ -27,20 +27,33 @@ export class DocumentsService {
         userId: string,
         userRole: Role,
     ): Promise<TiliDocumentDoc> {
-        // Check project access
-        await this.checkProjectAccess(createDto.projectId, userId, userRole);
+        // Check project access only if projectId is provided
+        if (createDto.projectId) {
+            await this.checkProjectAccess(createDto.projectId, userId, userRole);
+        }
 
-        const document = new this.documentModel({
+        const documentData: any = {
             name: createDto.name || file.originalname,
             type: createDto.type,
             path: file.path,
             mimeType: file.mimetype,
             size: file.size,
             version: 1,
-            projectId: new Types.ObjectId(createDto.projectId),
             uploadedBy: new Types.ObjectId(userId),
             description: createDto.description,
-        });
+        };
+
+        // Add projectId if provided
+        if (createDto.projectId) {
+            documentData.projectId = new Types.ObjectId(createDto.projectId);
+        }
+
+        // Add meetingId if provided
+        if (createDto.meetingId) {
+            documentData.meetingId = createDto.meetingId;
+        }
+
+        const document = new this.documentModel(documentData);
 
         const saved = await document.save();
 
@@ -62,6 +75,10 @@ export class DocumentsService {
 
         if (query.projectId) {
             filter.projectId = new Types.ObjectId(query.projectId);
+        }
+
+        if (query.meetingId) {
+            filter.meetingId = query.meetingId;
         }
 
         if (query.search) {

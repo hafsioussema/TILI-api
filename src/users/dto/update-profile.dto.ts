@@ -1,7 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateProfileDto {
+    @ApiPropertyOptional({ example: 'Dupont', description: 'Nom de famille' })
+    @IsOptional()
+    @IsString()
+    nom?: string;
+
+    @ApiPropertyOptional({ example: 'Jean', description: 'Prénom' })
+    @IsOptional()
+    @IsString()
+    prenom?: string;
+
     @ApiPropertyOptional({ example: '+33612345678', description: 'Numéro de téléphone' })
     @IsOptional()
     @IsString()
@@ -12,8 +22,8 @@ export class UpdateProfileDto {
     @IsString()
     poste?: string;
 
-    @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg', description: 'URL de l\'avatar' })
+    @ApiPropertyOptional({ example: '/uploads/avatars/avatar.jpg', description: 'Chemin de l\'avatar' })
     @IsOptional()
-    @IsUrl({}, { message: 'URL invalide' })
+    @IsString()
     avatar?: string;
 }

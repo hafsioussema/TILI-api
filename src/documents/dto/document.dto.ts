@@ -12,9 +12,15 @@ export class CreateDocumentDto {
     @IsEnum(DocumentType)
     type: DocumentType;
 
-    @ApiProperty({ description: 'ID du projet associé' })
+    @ApiPropertyOptional({ description: 'ID du projet associé' })
     @IsMongoId()
-    projectId: string;
+    @IsOptional()
+    projectId?: string;
+
+    @ApiPropertyOptional({ description: 'ID de la réunion associée' })
+    @IsString()
+    @IsOptional()
+    meetingId?: string;
 
     @ApiPropertyOptional({ description: 'Description du document' })
     @IsString()
@@ -49,6 +55,11 @@ export class QueryDocumentsDto {
     @IsMongoId()
     @IsOptional()
     projectId?: string;
+
+    @ApiPropertyOptional({ description: 'Filtrer par réunion' })
+    @IsString()
+    @IsOptional()
+    meetingId?: string;
 
     @ApiPropertyOptional({ description: 'Recherche par nom' })
     @IsString()
