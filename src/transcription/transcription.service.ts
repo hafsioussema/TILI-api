@@ -21,6 +21,22 @@ export class TranscriptionService {
             throw new Error('GROQ_API_KEY is not configured');
         }
 
+        // Check if file exists and has size
+        try {
+            const stats = fs.statSync(filePath);
+            if (stats.size === 0) {
+                this.logger.warn('File is empty');
+                return { text: '', segments: [] };
+            }
+            if (stats.size < 100) {
+                this.logger.warn('File is too small, likely invalid audio');
+                return { text: '', segments: [] };
+            }
+        } catch (err) {
+            this.logger.error('File not found or inaccessible', err);
+            throw new Error('File not found or inaccessible');
+        }
+
         try {
             const form = new FormData();
             form.append('file', fs.createReadStream(filePath));
@@ -41,6 +57,12 @@ export class TranscriptionService {
                 segments: response.data.segments,
             };
         } catch (error) {
+            // Check for specific Groq error about missing audio track
+            if (error.response?.data?.error?.message?.includes('no audio track found')) {
+                this.logger.warn('No audio track found in file');
+                return { text: '', segments: [] };
+            }
+            
             this.logger.error('Transcription failed', error.response?.data || error.message);
             throw error;
         }

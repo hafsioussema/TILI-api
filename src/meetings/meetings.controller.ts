@@ -185,4 +185,21 @@ export class MeetingsController {
 
         return this.meetingsService.getDocuments(id);
     }
+
+    @Post(':id/finalize')
+    async finalizeWithoutAudio(
+        @Param('id') id: string,
+        @CurrentUser() user: any,
+    ) {
+        const meeting = await this.meetingsService.findOne(id);
+        if (!meeting) throw new HttpException('Meeting not found', HttpStatus.NOT_FOUND);
+
+        // Security Check: Is user the organizer? (first participant)
+        const participants = JSON.parse(meeting.participants || '[]');
+        if (participants.length === 0 || participants[0] !== user.email) {
+            throw new ForbiddenException('Only the organizer can finalize this meeting.');
+        }
+
+        return this.meetingsService.finalizeWithoutAudio(id);
+    }
 }

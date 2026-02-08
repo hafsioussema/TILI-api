@@ -275,10 +275,17 @@ export class MeetingsService {
 
         } catch (error) {
             this.logger.error(`Processing failed for meeting ${meetingId}`, error);
-            await this.prisma.meeting.update({
-                where: { id: meetingId },
-                data: { status: 'FAILED' },
-            });
+            
+            // For live meetings, mark update but don't fail - next segment can still be appended
+            // For uploads, mark as failed since it's a single operation
+            if (isLive) {
+                this.logger.warn(`Live meeting ${meetingId} segment processing failed, continuing...`);
+            } else {
+                await this.prisma.meeting.update({
+                    where: { id: meetingId },
+                    data: { status: 'FAILED' },
+                });
+            }
         }
     }
 
@@ -480,5 +487,86 @@ export class MeetingsService {
         }
 
         return JSON.parse(meeting.documentIds || '[]');
+    }
+
+    async finalizeWithoutAudio(meetingId: string): Promise<Meeting> {
+        const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
+        
+        if (!meeting) {
+            throw new Error('Meeting not found');
+        }
+
+        // Create a minimal transcript
+        const participants = JSON.parse(meeting.participants || '[]');
+        const transcriptContent = `Réunion sans enregistrement audio.
+
+Titre: ${meeting.title}
+Date: ${new Date(meeting.date).toLocaleString('fr-FR')}
+Participants: ${participants.join(', ')}
+
+Note: Cette réunion n'a pas d'enregistrement audio associé.`;
+
+        // Check if transcript exists
+        const existingTranscript = await this.prisma.transcript.findUnique({
+            where: { meetingId }
+        });
+
+        if (!existingTranscript) {
+            await this.prisma.transcript.create({
+                data: {
+                    meetingId,
+                    content: transcriptContent,
+                    segments: JSON.stringify([]),
+                },
+            });
+        }
+
+        // Generate a basic summary using AI
+        let summaryContent: string;
+        try {
+            const promptContext = `Génère un résumé structuré pour cette réunion sans audio:
+Titre: ${meeting.title}
+Date: ${new Date(meeting.date).toLocaleString('fr-FR')}
+Participants: ${participants.join(', ')}
+
+Crée un résumé professionnel qui indique qu'aucun enregistrement n'est disponible mais qui structure les informations disponibles.`;
+            
+            summaryContent = await this.aiSummaryService.generateSummary(promptContext);
+        } catch (error) {
+            this.logger.error(`Erreur lors de la génération du résumé:`, error);
+            summaryContent = `# ${meeting.title}
+
+**Date:** ${new Date(meeting.date).toLocaleString('fr-FR')}
+
+**Participants:**
+${participants.map(p => `- ${p}`).join('\n')}
+
+**Note:** Cette réunion n'a pas d'enregistrement audio. Aucune transcription ou analyse détaillée n'est disponible.`;
+        }
+
+        // Check if summary exists
+        const existingSummary = await this.prisma.summary.findUnique({
+            where: { meetingId }
+        });
+
+        if (existingSummary) {
+            await this.prisma.summary.update({
+                where: { meetingId },
+                data: { content: summaryContent },
+            });
+        } else {
+            await this.prisma.summary.create({
+                data: {
+                    meetingId,
+                    content: summaryContent,
+                },
+            });
+        }
+
+        // Update meeting status to COMPLETED
+        return this.prisma.meeting.update({
+            where: { id: meetingId },
+            data: { status: 'COMPLETED' },
+        });
     }
 }
