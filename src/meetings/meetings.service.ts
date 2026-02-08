@@ -19,14 +19,13 @@ export class MeetingsService {
         private notificationsService: NotificationsService,
     ) { }
 
-    async createMetadata(data: { title: string; date: Date; participants: string[]; minPresenceDuration?: number }): Promise<Meeting> {
+    async createMetadata(data: { title: string; date: Date; participants: string[] }): Promise<Meeting> {
         const meeting = await this.prisma.meeting.create({
             data: {
                 title: data.title,
                 date: data.date,
                 participants: JSON.stringify(data.participants),
                 status: 'SCHEDULED',
-                minPresenceDuration: data.minPresenceDuration || 0,
             },
         });
 
@@ -190,83 +189,12 @@ export class MeetingsService {
                 }
             }
 
-            // 6. Simulate Attendance and Completion ONLY if NOT Live (Import Mode)
+            // 6. Mark as COMPLETED (Import Mode only)
             if (!isLive) {
-                // Retrieve the meeting to get participants and minPresence
-                const meeting = await this.prisma.meeting.findUnique({ where: { id: meetingId } });
-                let attendanceData = {};
-
-                if (meeting) {
-                    const participants = JSON.parse(meeting.participants || '[]');
-                    const minDuration = meeting.minPresenceDuration || 0;
-
-                    // Estimate duration from transcription segments if available
-                    let estimatedDuration = 0;
-                    if (segments && segments.length > 0) {
-                        // Check if segments have 'end' or 'end_timestamp'
-                        const lastSegment = segments[segments.length - 1];
-                        // OpenAI verbose_json usually has 'end'
-                        if (lastSegment && typeof lastSegment === 'object' && 'end' in lastSegment) {
-                            estimatedDuration = Math.ceil(Number(lastSegment['end']));
-                        }
-                    }
-
-                    // Fallback to file size approx (1 min per MB for video/audio mix is rough but better than nothing or random 30m)
-                    if (estimatedDuration === 0) {
-                        try {
-                            const stats = fs.statSync(filePath);
-                            // Very rough: 1MB ~ 10s for high quality video? No, let's assume audio upload mainly or use very rough.
-                            estimatedDuration = Math.max(10, Math.floor(stats.size / 50000));
-                        } catch (e) {
-                            estimatedDuration = 60; // Default 1 min
-                        }
-                    }
-
-                    attendanceData = participants.reduce((acc, email) => {
-                        // Start with 0 duration (Absent) for realism in single-player demo
-                        let presence = 0;
-
-                        // For demo purposes, we randomly assign status:
-                        // 60% chance: Fully Present (duration = meeting duration)
-                        // 20% chance: Partially Present (random duration < meeting duration)
-                        // 20% chance: Absent (0s)
-                        const rand = Math.random();
-                        if (rand > 0.4) {
-                            presence = estimatedDuration;
-                        } else if (rand > 0.2) {
-                            presence = Math.floor(estimatedDuration * Math.random());
-                        } else {
-                            presence = 0;
-                        }
-
-                        // Strict sanity check: cannot stay longer than meeting
-                        if (presence > estimatedDuration) presence = estimatedDuration;
-
-                        let status = 'INFO';
-                        if (estimatedDuration >= minDuration) {
-                            status = presence >= minDuration ? 'PRESENT' : 'ABSENT';
-                        } else {
-                            status = 'N/A'; // Duration too short to count
-                        }
-
-                        // Special case: if presence is 0, always ABSENT unless N/A
-                        if (presence === 0 && status !== 'N/A') status = 'ABSENT';
-
-                        acc[email] = {
-                            duration: presence,
-                            status: status,
-                            meetingDuration: estimatedDuration
-                        };
-                        return acc;
-                    }, {});
-                }
-
-                // 7. Complete and Save Attendance
                 await this.prisma.meeting.update({
                     where: { id: meetingId },
                     data: {
                         status: 'COMPLETED',
-                        attendance: JSON.stringify(attendanceData)
                     },
                 });
             }
@@ -318,7 +246,7 @@ export class MeetingsService {
             },
         });
     }
-    async update(id: string, data: { title?: string; date?: string; participants?: string[]; minPresenceDuration?: number; status?: string; attendance?: string }): Promise<Meeting> {
+    async update(id: string, data: { title?: string; date?: string; participants?: string[]; status?: string }): Promise<Meeting> {
         const meeting = await this.prisma.meeting.findUnique({ where: { id } });
         if (!meeting) {
             throw new Error('Meeting not found');
@@ -331,9 +259,7 @@ export class MeetingsService {
         if (data.title) updateData.title = data.title;
         if (data.date) updateData.date = new Date(data.date);
         if (data.participants) updateData.participants = JSON.stringify(data.participants);
-        if (data.minPresenceDuration !== undefined) updateData.minPresenceDuration = data.minPresenceDuration;
         if (data.status) updateData.status = data.status as any;
-        if (data.attendance) updateData.attendance = data.attendance;
 
         const updatedMeeting = await this.prisma.meeting.update({
             where: { id },

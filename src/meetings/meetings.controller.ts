@@ -18,7 +18,7 @@ export class MeetingsController {
     ) { }
 
     @Post()
-    async createMetadata(@Body() body: { title: string; date?: string; participants?: string[]; minPresenceDuration?: number }, @CurrentUser() user: any) {
+    async createMetadata(@Body() body: { title: string; date?: string; participants?: string[] }, @CurrentUser() user: any) {
         // Ensure the creator is the first participant (Organizer)
         let participants = body.participants || [];
         if (user.email) {
@@ -31,7 +31,6 @@ export class MeetingsController {
             title: body.title || 'Untitled Meeting',
             date: body.date ? new Date(body.date) : new Date(),
             participants: participants,
-            minPresenceDuration: body.minPresenceDuration,
         });
 
         // Si la réunion est planifiée dans le futur, envoyer les invitations

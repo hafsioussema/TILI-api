@@ -16,6 +16,7 @@ import { BotModule } from './bot/bot.module';
 import { UsersService } from './users/users.service';
 import { MeetingsModule } from './meetings/meetings.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TTSModule } from './tts/tts.module';
 
 
 @Module({
@@ -55,6 +56,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     BotModule,
     MeetingsModule,
     NotificationsModule,
+    TTSModule,
   ],
   providers: [],
 })
