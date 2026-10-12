@@ -1,175 +1,105 @@
 # TILI API
 
-API REST NestJS pour la gestion des utilisateurs et l'authentification avec JWT.
+REST API built with NestJS for user management and authentication.
 
-## 🚀 Fonctionnalités
+## Features
 
-- ✅ Authentification JWT (access token + refresh token)
-- ✅ Gestion des rôles (ADMIN, CHEF_PROJET, CONSULTANT)
-- ✅ Création de comptes par l'administrateur uniquement
-- ✅ Envoi d'emails SMTP (bienvenue, changement de mot de passe)
-- ✅ Verrouillage de compte après 5 tentatives échouées
-- ✅ Documentation Swagger complète
-- ✅ Tests unitaires et e2e
+- JWT authentication with access and refresh tokens
+- Role-based access control: `ADMIN`, `CHEF_PROJET`, and `CONSULTANT`
+- Administrator-managed account creation
+- SMTP email notifications for welcome and password-change flows
+- Account lockout after repeated failed login attempts
+- Swagger API documentation
+- Unit and end-to-end tests
 
-## 📋 Prérequis
+## Prerequisites
 
-- Node.js 18+
+- Node.js 18 or a version supported by the project
 - MongoDB 6+
-- Serveur SMTP (ou Mailtrap pour le développement)
+- SMTP provider for email features (Mailtrap can be used during development)
 
-## ⚙️ Installation
+## Setup
 
 ```bash
-# Cloner le projet
-git clone <repository>
-# Naviguer vers le projet
-cd /Users/chkilisaif/Documents/tili-api
-
-# Installer les dépendances
+git clone <repository-url>
+cd <repository-directory>
 npm install
-
-# Copier le fichier d'environnement
-cp .env.example .env
-
-# Éditer les variables d'environnement
-nano .env
 ```
 
-## 🔧 Configuration
+Create a local environment file from the example:
 
-Créez un fichier `.env` à partir de `.env.example` :
+```bash
+cp .env.example .env
+```
+
+Update `.env` with your local configuration. Do not commit real credentials or production secrets.
+
+## Environment Configuration
+
+Configure the following values in your local `.env` file as needed by the application:
 
 ```env
-# App
 PORT=3000
 NODE_ENV=development
-
-# MongoDB
 MONGODB_URI=mongodb://localhost:27017/tili-db
-
-# JWT
-JWT_SECRET=votre-secret-très-sécurisé
+JWT_SECRET=replace-with-a-long-random-secret
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
-
-# SMTP
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_USER=votre-email@example.com
-SMTP_PASS=votre-mot-de-passe
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
 SMTP_FROM="TILI App <noreply@example.com>"
-
-# Admin par défaut
-ADMIN_EMAIL=admin@tili.com
-ADMIN_PASSWORD=Admin123!
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=replace-with-a-strong-unique-password
 ```
 
-## 🏃 Démarrage
+These are example placeholders only. Use strong unique secrets locally and store production values in your deployment platform's secret manager. Never reuse example credentials in production.
+
+## Run the API
+
+Development mode:
 
 ```bash
-# Développement
 npm run start:dev
+```
 
-# Production
+Build and run:
+
+```bash
 npm run build
 npm run start:prod
 ```
 
-## 📚 Documentation API
-
-Une fois l'application démarrée, accédez à Swagger :
+When the server is running, Swagger documentation is available at:
 
 ```
 http://localhost:3000/api/docs
 ```
 
-## 🔐 Authentification
+## Authentication Flow
 
-### Flux d'authentification
+1. An administrator creates a user account through `POST /users`.
+2. The user receives an email when configured.
+3. The user signs in through `POST /auth/login`.
+4. The user can update their profile and change their password using the relevant authenticated endpoints.
 
-1. **L'admin crée un compte** : `POST /users`
-2. **L'utilisateur reçoit un email** avec ses identifiants
-3. **L'utilisateur se connecte** : `POST /auth/login`
-4. **L'utilisateur change son mot de passe** : `POST /auth/change-password`
+For the complete endpoint list and request schemas, consult the Swagger documentation and source code.
 
-### Endpoints
+## Testing
 
-| Méthode | Endpoint | Auth | Description |
-|---------|----------|------|-------------|
-| POST | `/auth/login` | ❌ | Connexion |
-| GET | `/auth/profile` | ✅ | Profil utilisateur |
-| PATCH | `/auth/profile` | ✅ | Modifier son profil |
-| POST | `/auth/change-password` | ✅ | Changer mot de passe |
-| POST | `/auth/refresh` | ✅ | Rafraîchir le token |
-
-### Gestion des utilisateurs (Admin)
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/users` | Liste des utilisateurs |
-| GET | `/users/:id` | Détails utilisateur |
-| POST | `/users` | Créer un utilisateur |
-| PATCH | `/users/:id` | Modifier un utilisateur |
-| DELETE | `/users/:id` | Supprimer un utilisateur |
-| PATCH | `/users/:id/toggle-status` | Activer/désactiver |
-
-## 🧪 Tests
+Run the tests configured in the repository:
 
 ```bash
-# Tests unitaires
-npm run test
-
-# Tests avec couverture
-npm run test:cov
-
-# Tests e2e
+npm test
 npm run test:e2e
 ```
 
-## 📁 Structure du projet
+Check `package.json` for the exact scripts supported by the current branch.
 
-```
-src/
-├── auth/                   # Module d'authentification
-│   ├── decorators/         # @Roles, @CurrentUser
-│   ├── dto/                # LoginDto, ChangePasswordDto
-│   ├── guards/             # JwtAuthGuard, RolesGuard
-│   ├── strategies/         # JWT Strategy
-│   ├── auth.controller.ts
-│   ├── auth.service.ts
-│   └── auth.module.ts
-├── users/                  # Module utilisateurs
-│   ├── dto/                # CreateUserDto, UpdateUserDto
-│   ├── schemas/            # User Mongoose Schema
-│   ├── users.controller.ts
-│   ├── users.service.ts
-│   └── users.module.ts
-├── email/                  # Module email
-│   ├── email.service.ts
-│   └── email.module.ts
-├── common/                 # Éléments partagés
-│   └── enums/              # Role enum
-├── app.module.ts
-└── main.ts
-```
+## Security Notes
 
-## 🔒 Sécurité
-
-- Mots de passe hashés avec **bcrypt** (10 rounds)
-- Tokens JWT avec expiration
-- Verrouillage de compte après **5 tentatives** (30 minutes)
-- Validation des données avec **class-validator**
-- Pas de registration publique
-
-## 👥 Rôles
-
-| Rôle | Description |
-|------|-------------|
-| `ADMIN` | Accès complet, gestion des utilisateurs |
-| `CHEF_PROJET` | Gestion de projets (à implémenter) |
-| `CONSULTANT` | Consultation (à implémenter) |
-
-## 📝 Licence
-
-MIT
+- Keep `.env` out of version control.
+- Rotate any credential that may have been committed previously.
+- Use a unique, high-entropy JWT secret in each environment.
+- Restrict Swagger access appropriately in production.
