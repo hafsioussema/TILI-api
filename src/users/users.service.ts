@@ -272,7 +272,7 @@ export class UsersService {
         const admin = new this.userModel({
             nom: 'Admin',
             prenom: 'System',
-            email: email.toLowerCase(),
+            email: normalizedEmail,
             password: hashedPassword,
             role: Role.ADMIN,
             isActive: true,
