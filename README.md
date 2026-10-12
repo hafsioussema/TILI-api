@@ -32,7 +32,13 @@ Create a local environment file from the example:
 cp .env.example .env
 ```
 
-Update `.env` with your local configuration. Do not commit real credentials or production secrets.
+Update `.env` with your local configuration. Before first startup, generate separate unique values for `JWT_SECRET` and `ADMIN_PASSWORD` (run the command twice and use a different result each time):
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Set `ADMIN_EMAIL` to a real administrator email. When no administrator exists yet, startup refuses placeholder or legacy default admin credentials. The initial administrator must change the password after signing in. Never commit `.env` or deployment secrets.
 
 ## Environment Configuration
 
@@ -42,7 +48,7 @@ Configure the following values in your local `.env` file as needed by the applic
 PORT=3000
 NODE_ENV=development
 MONGODB_URI=mongodb://localhost:27017/tili-db
-JWT_SECRET=replace-with-a-long-random-secret
+JWT_SECRET=replace-with-a-unique-random-jwt-secret
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
 SMTP_HOST=smtp.example.com
@@ -50,8 +56,8 @@ SMTP_PORT=587
 SMTP_USER=your-smtp-user
 SMTP_PASS=your-smtp-password
 SMTP_FROM="TILI App <noreply@example.com>"
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=replace-with-a-strong-unique-password
+ADMIN_EMAIL=replace-with-your-admin-email
+ADMIN_PASSWORD=replace-with-a-unique-random-admin-password
 ```
 
 These are example placeholders only. Use strong unique secrets locally and store production values in your deployment platform's secret manager. Never reuse example credentials in production.

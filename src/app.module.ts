@@ -68,8 +68,8 @@ export class AppModule implements OnModuleInit {
 
   async onModuleInit() {
     // Seed admin par défaut au démarrage
-    const adminEmail = this.configService.get<string>('ADMIN_EMAIL', 'admin@tili.com');
-    const adminPassword = this.configService.get<string>('ADMIN_PASSWORD', 'Admin123!');
+    const adminEmail = this.configService.get<string>('ADMIN_EMAIL', '');
+    const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
     await this.usersService.seedAdmin(adminEmail, adminPassword);
   }
 }

@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from './schemas/user.schema';
 import { CreateUserDto, UpdateUserDto, UpdateProfileDto } from './dto';
 import { Role } from '../common/enums/role.enum';
+import { randomInt } from 'node:crypto';
 
 @Injectable()
 export class UsersService {
@@ -24,11 +25,7 @@ export class UsersService {
      */
     generateTemporaryPassword(length = 12): string {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
-        let password = '';
-        for (let i = 0; i < length; i++) {
-            password += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return password;
+        return Array.from({ length }, () => chars.charAt(randomInt(chars.length))).join('');
     }
 
     /**
@@ -246,11 +243,29 @@ export class UsersService {
     /**
      * Crée l'admin par défaut si aucun admin n'existe
      */
-    async seedAdmin(email: string, password: string): Promise<void> {
+    async seedAdmin(email: string, password?: string): Promise<void> {
         const existingAdmin = await this.userModel.findOne({ role: Role.ADMIN }).exec();
         if (existingAdmin) {
             this.logger.log('Admin existant trouvé, seed ignoré');
             return;
+        }
+
+        const normalizedEmail = email?.trim().toLowerCase();
+        if (
+            !normalizedEmail ||
+            normalizedEmail.startsWith('replace-with-') ||
+            normalizedEmail.endsWith('@example.com')
+        ) {
+            throw new Error('Set a real ADMIN_EMAIL before bootstrapping the first administrator.');
+        }
+        if (
+            !password?.trim() ||
+            password === 'Admin123!' ||
+            password.startsWith('replace-with-')
+        ) {
+            throw new Error(
+                'Set a unique ADMIN_PASSWORD before bootstrapping the first administrator. Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'base64url\'))"',
+            );
         }
 
         const hashedPassword = await this.hashPassword(password);
@@ -261,10 +276,10 @@ export class UsersService {
             password: hashedPassword,
             role: Role.ADMIN,
             isActive: true,
-            mustChangePassword: false,
+            mustChangePassword: true,
         });
 
         await admin.save();
-        this.logger.log(`Admin par défaut créé: ${email}`);
+        this.logger.log(`Initial administrator account created: ${normalizedEmail}`);
     }
 }
